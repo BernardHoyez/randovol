@@ -2,7 +2,7 @@
 
 PWA statique de survol 3D d'une randonnée.
 
-## Fonctionnalités v1
+## Fonctionnalités v1.1
 - Import GPX et KML.
 - Interpolation de la trace à ~35 m.
 - Altitudes récupérées auprès de l'API altimétrique de la Géoplateforme avec la ressource `ign_rge_alti_wld` (RGE ALTI®).
@@ -36,3 +36,10 @@ La documentation IGN indique que l'API altimétrique permet jusqu'à 5 000 coupl
 - mode « regard vers l'horizon » réglable.
 - export vidéo WebM.
 - éventuellement génération de tuiles terrain Cesium à partir de dalles RGE ALTI locales pour un véritable relief 3D IGN.
+
+### Correction v1.1
+L'appel au service altimétrique IGN est maintenant effectué en **POST**. Cela évite les problèmes de longueur d'URL avec les traces longues et suit la méthode POST documentée par la Géoplateforme. L'API accepte jusqu'à 5 000 couples longitude/latitude par requête. citeturn1search0
+
+Le cache du service worker passe à `randovol-v2` afin que GitHub Pages ne conserve pas l'ancien JavaScript.
+
+La démo a également été remplacée par un petit circuit plus cohérent dans le secteur de la Sainte-Baume, avec plusieurs virages et trois waypoints.

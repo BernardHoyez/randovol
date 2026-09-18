@@ -61,13 +61,24 @@ function densify(src){
   return out;
 }
 async function getElevations(points){
-  // RGE ALTI API accepts max 5000 coordinate pairs per request.
+  // POST is deliberately used here: a long GPX can exceed practical URL/proxy
+  // limits when 5,000 coordinate pairs are sent with GET.
   for(let i=0;i<points.length;i+=MAX_API_POINTS){
     const chunk=points.slice(i,i+MAX_API_POINTS);
-    const lon=chunk.map(p=>p.lon.toFixed(7)).join("|"), lat=chunk.map(p=>p.lat.toFixed(7)).join("|");
-    const u=ALT_API+"?lon="+encodeURIComponent(lon)+"&lat="+encodeURIComponent(lat)+"&resource="+ALT_RESOURCE+"&delimiter=|&indent=false&measures=false&zonly=true";
-    const r=await fetch(u); if(!r.ok) throw Error("Erreur API altimétrique IGN: "+r.status);
-    const j=await r.json(), z=j.elevations||[];
+    const body={
+      lon:chunk.map(p=>p.lon.toFixed(7)).join("|"),
+      lat:chunk.map(p=>p.lat.toFixed(7)).join("|"),
+      resource:ALT_RESOURCE, delimiter:"|", indent:"false",
+      measures:"false", zonly:"true"
+    };
+    const r=await fetch(ALT_API,{
+      method:"POST",
+      headers:{"Accept":"application/json","Content-Type":"application/json"},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok) throw Error(`Service altimétrique IGN: HTTP ${r.status}`);
+    const j=await r.json();
+    const z=j.elevations||[];
     chunk.forEach((p,k)=>p.z=Number(z[k]));
     $("bar").style.width=Math.min(100,((i+chunk.length)/points.length)*100)+"%";
   }
@@ -114,9 +125,20 @@ function drawRoute(){
   }
 }
 function makeDemo(){
-  const raw=[]; const c=[43.2915,5.4505];
-  for(let i=0;i<80;i++){const t=i/79;raw.push({lat:c[0]+.025*Math.sin(t*1.6),lon:c[1]+.055*t+0.006*Math.sin(t*8),z:NaN})}
-  waypoints=[]; return raw;
+  // Démo : boucle fictive de randonnée dans le secteur de la Sainte-Baume.
+  // Le tracé est volontairement simple mais comporte plusieurs virages.
+  const pts=[
+    [43.3320,5.7710],[43.3335,5.7780],[43.3370,5.7830],
+    [43.3410,5.7790],[43.3435,5.7710],[43.3415,5.7630],
+    [43.3370,5.7580],[43.3325,5.7620],[43.3300,5.7690],
+    [43.3320,5.7710]
+  ];
+  waypoints=[
+    {lat:43.3370,lon:5.7830,name:"Point de vue"},
+    {lat:43.3435,lon:5.7710,name:"Crête"},
+    {lat:43.3320,lon:5.7710,name:"Départ / arrivée"}
+  ];
+  return pts.map(([lat,lon])=>({lat,lon,z:NaN}));
 }
 async function loadRoute(raw,wps=[]){
   if(raw.length<2)throw Error("Trace trop courte.");
@@ -135,10 +157,21 @@ async function loadRoute(raw,wps=[]){
   setStatus("Prêt. Altitude caméra = hauteur au-dessus du sol RGE ALTI®.");
 }
 function cameraAt(index){
-  const p=route[index], ahead=route[Math.min(route.length-1,index+Math.max(2,Math.round(CAMERA_LOOK_AHEAD/SAMPLE_SPACING_M)))];
-  const h=+$("height").value, heading=Cesium.Math.toRadians(bearing(p,ahead));
+  const i=Math.floor(index), f=index-i;
+  const a=route[i], b=route[Math.min(route.length-1,i+1)];
+  const p={lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f,z:a.z+(b.z-a.z)*f};
+  const lookIndex=Math.min(route.length-1,Math.floor(index)+Math.max(3,Math.round(CAMERA_LOOK_AHEAD/SAMPLE_SPACING_M)));
+  const target=route[lookIndex];
+  const h=+$("height").value;
   const pos=Cesium.Cartesian3.fromDegrees(p.lon,p.lat,p.z+h);
-  viewer.camera.setView({destination:pos,orientation:{heading,pitch:Cesium.Math.toRadians(-10),roll:0}});
+  const targetPos=Cesium.Cartesian3.fromDegrees(target.lon,target.lat,target.z);
+  viewer.camera.lookAt(pos, new Cesium.HeadingPitchRange(
+    Cesium.Math.toRadians(bearing(p,target)),
+    Cesium.Math.toRadians(-8),
+    h*1.05
+  ));
+  // Force a short reset of the local transform after lookAt.
+  viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
 }
 function stopFly(){
   flying=false;cancelAnimationFrame(raf);$("pause").disabled=false;
@@ -149,7 +182,7 @@ function fly(){
   function frame(now){
     if(!flying)return;
     const t=clamp((now-startTime)/duration,0,1), idx=t*(route.length-1), i=Math.floor(idx);
-    cameraAt(i);
+    cameraAt(idx);
     trailEntity.polyline.positions=new Cesium.CallbackProperty(()=>route.slice(0,i+1).map(p=>Cesium.Cartesian3.fromDegrees(p.lon,p.lat,p.z+2)),false);
     $("bar").style.width=(t*100)+"%";
     if(t>=1){flying=false;setStatus("Survol terminé.");return}
