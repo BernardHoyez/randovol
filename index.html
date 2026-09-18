@@ -1,247 +1,71 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RandoVol</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#2b6cb0">
-    <meta name="description" content="Générateur PWA de survol KMZ à 150m d'altitude pour Google Earth.">
-    
-    <!-- Dependencies via CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toGeoJSON/0.16.0/togeojson.min.js"></script>
-    
-    <style>
-        :root {
-            --primary: #2b6cb0;
-            --primary-hover: #2c5282;
-            --bg: #f7fafc;
-            --card-bg: #ffffff;
-            --text: #2d3748;
-            --text-muted: #718096;
-            --border: #e2e8f0;
-            --accent: #319795;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 650px;
-            width: 100%;
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            margin: auto;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 25px;
-        }
-
-        h1 {
-            font-size: 1.8rem;
-            color: var(--primary);
-            margin-bottom: 6px;
-        }
-
-        p.subtitle {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }
-
-        .drop-zone {
-            border: 2px dashed var(--primary);
-            border-radius: 8px;
-            padding: 30px 20px;
-            text-align: center;
-            cursor: pointer;
-            background-color: #ebf8ff;
-            transition: all 0.2s ease;
-            margin-bottom: 20px;
-        }
-
-        .drop-zone:hover, .drop-zone.dragover {
-            background-color: #bee3f8;
-            border-color: var(--primary-hover);
-        }
-
-        .drop-zone p {
-            font-weight: 500;
-            color: var(--primary-hover);
-            margin-bottom: 8px;
-        }
-
-        .drop-zone span {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-            background: #f8fafc;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .control-group.full-width {
-            grid-column: span 2;
-        }
-
-        label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: var(--text);
-        }
-
-        input[type="number"], select {
-            padding: 8px 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.9rem;
-            outline: none;
-        }
-
-        input[type="number"]:focus, select:focus {
-            border-color: var(--primary);
-        }
-
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            text-align: center;
-            text-decoration: none;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-hover);
-        }
-
-        .btn:disabled {
-            background-color: #cbd5e0;
-            cursor: not-allowed;
-        }
-
-        .file-info {
-            font-size: 0.85rem;
-            color: var(--accent);
-            margin-top: 8px;
-            font-weight: 500;
-            text-align: center;
-        }
-
-        footer {
-            margin-top: 25px;
-            text-align: center;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        @media (max-width: 480px) {
-            .controls {
-                grid-template-columns: 1fr;
-            }
-            .control-group.full-width {
-                grid-column: span 1;
-            }
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#173b2b">
+<meta name="description" content="RANDOVOL — survol 3D de randonnées GPX/KML avec Cesium et altimétrie RGE ALTI IGN.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon192.png">
+<title>RANDOVOL — Survol 3D</title>
+<link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.138/Build/Cesium/Widgets/widgets.css">
+<style>
+:root{--bg:#12231b;--panel:#173b2b;--accent:#f2c14e;--text:#f5f5f5}
+*{box-sizing:border-box} html,body,#cesiumContainer{width:100%;height:100%;margin:0;overflow:hidden}
+body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#000;color:var(--text)}
+#panel{position:absolute;z-index:10;left:12px;top:12px;width:min(380px,calc(100vw - 24px));background:rgba(18,35,27,.93);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:14px;box-shadow:0 8px 30px #0008;backdrop-filter:blur(8px)}
+h1{font-size:21px;margin:0 0 4px;letter-spacing:.08em} .sub{font-size:12px;opacity:.72;margin-bottom:12px}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+button,label.file{border:0;border-radius:9px;padding:8px 11px;background:#28563f;color:white;cursor:pointer;font-weight:600}
+button:hover,label.file:hover{background:#347050}
+button.primary{background:var(--accent);color:#1b241d} button:disabled{opacity:.45;cursor:not-allowed}
+input[type=file]{display:none} input[type=range]{width:145px;accent-color:var(--accent)}
+select{background:#234b38;color:white;border:1px solid #ffffff33;border-radius:7px;padding:6px}
+#status{font-size:12px;line-height:1.35;min-height:32px;margin-top:8px;color:#d9e7df}
+#stats{font-size:11px;opacity:.75;margin-top:6px}
+#progress{width:100%;height:5px;background:#ffffff22;border-radius:5px;overflow:hidden;margin-top:8px}
+#bar{height:100%;width:0;background:var(--accent);transition:width .1s}
+.small{font-size:11px;opacity:.75}
+#help{position:absolute;right:12px;bottom:12px;z-index:9;background:#12231bcc;padding:7px 10px;border-radius:8px;font-size:11px}
+@media(max-width:600px){#panel{padding:11px}.row{margin:6px 0} button,label.file{padding:7px 9px} #help{display:none}}
+</style>
 </head>
 <body>
+<div id="cesiumContainer"></div>
 
-<div class="container">
-    <header>
-        <h1>RandoVol</h1>
-        <p class="subtitle">Convertissez vos tracés KML/GPX en visites 3D pour Google Earth</p>
-    </header>
+<section id="panel">
+  <h1>RANDOVOL</h1>
+  <div class="sub">Survol 3D de randonnée · Cesium + RGE ALTI® IGN</div>
+  <div class="row">
+    <label class="file">📂 GPX / KML<input id="file" type="file" accept=".gpx,.kml,.xml,.kmz"></label>
+    <button id="demo">Démo</button>
+  </div>
+  <div class="row">
+    <button id="play" class="primary" disabled>▶ Survol</button>
+    <button id="pause" disabled>⏸ Pause</button>
+    <button id="reset" disabled>↺ Revenir</button>
+  </div>
+  <div class="row">
+    <span>Hauteur</span>
+    <input id="height" type="range" min="50" max="500" step="10" value="150">
+    <b><span id="heightValue">150</span> m</b>
+  </div>
+  <div class="row">
+    <span>Vitesse</span>
+    <select id="speed">
+      <option value="0.5">0,5×</option><option value="1" selected>1×</option>
+      <option value="1.5">1,5×</option><option value="2">2×</option>
+      <option value="3">3×</option><option value="5">5×</option>
+    </select>
+    <span class="small">≈ 4–20 km/h</span>
+  </div>
+  <div id="progress"><div id="bar"></div></div>
+  <div id="status">Charge une randonnée GPX ou KML.</div>
+  <div id="stats"></div>
+</section>
+<div id="help">Molette : zoom · glisser : vue libre · ESC : quitter le survol</div>
 
-    <div class="drop-zone" id="dropZone">
-        <p>Glissez-déposez votre fichier KML ou GPX ici</p>
-        <span>ou cliquez pour parcourir</span>
-        <input type="file" id="fileInput" accept=".kml,.gpx">
-    </div>
-    <div class="file-info" id="fileInfo"></div>
-
-    <div class="controls">
-        <div class="control-group">
-            <label for="altitude">Altitude caméra (m) :</label>
-            <input type="number" id="altitude" value="150" min="30" max="2000">
-        </div>
-        <div class="control-group">
-            <label for="tilt">Inclinaison / Tilt (°) :</label>
-            <input type="number" id="tilt" value="65" min="0" max="85">
-        </div>
-        <div class="control-group">
-            <label for="stepDistance">Échantillonnage (m) :</label>
-            <input type="number" id="stepDistance" value="30" min="5" max="500">
-        </div>
-        <div class="control-group">
-            <label for="speed">Vitesse de survol (km/h) :</label>
-            <input type="number" id="speed" value="60" min="10" max="500">
-        </div>
-        <div class="control-group full-width">
-            <label for="range">Distance focalisation / Range (m) :</label>
-            <input type="number" id="range" value="300" min="50" max="2000">
-        </div>
-    </div>
-
-    <button id="generateBtn" class="btn" disabled>Générer le fichier KMZ</button>
-
-    <footer>
-        <p>RandoVol PWA — Fonctionne 100% hors-ligne dans votre navigateur.</p>
-    </footer>
-</div>
-
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.138/Build/Cesium/Cesium.js"></script>
 <script src="app.js"></script>
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW RandoVol enregistré:', reg.scope))
-                .catch(err => console.error('Erreur SW:', err));
-        });
-    }
-</script>
 </body>
 </html>

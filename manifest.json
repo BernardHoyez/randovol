@@ -1,21 +1,12 @@
 {
-  "name": "RandoVol",
-  "short_name": "RandoVol",
-  "description": "G\u00e9n\u00e9rateur PWA de survol KMZ \u00e0 150m d'altitude pour Google Earth.",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2b6cb0",
-  "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+  "name":"RANDOVOL — Survol 3D de randonnée",
+  "short_name":"RANDOVOL",
+  "start_url":".",
+  "display":"standalone",
+  "background_color":"#12231b",
+  "theme_color":"#173b2b",
+  "icons":[
+    {"src":"icon192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icon512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
   ]
 }

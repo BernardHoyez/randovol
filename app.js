@@ -1,182 +1,171 @@
-// Global state
-let parsedGeoJSON = null;
-let currentFileName = "randovol_survol";
+/* RANDOVOL — v1
+   Static PWA. Terrain altitude: IGN Géoplateforme / RGE ALTI.
+   CesiumJS supplies the 3D globe and camera.
+*/
+const ALT_API="https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json";
+const ALT_RESOURCE="ign_rge_alti_wld";
+const MAX_API_POINTS=5000;
+const SAMPLE_SPACING_M=35;
+const CAMERA_LOOK_AHEAD=90;
 
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const fileInfo = document.getElementById('fileInfo');
-const generateBtn = document.getElementById('generateBtn');
+const $=id=>document.getElementById(id);
+let viewer, route=[], routeEntity, trailEntity, waypoints=[], flying=false, raf=0, startTime=0, duration=0;
+let groundReady=false;
 
-// Event Listeners for File Import
-dropZone.addEventListener('click', () => fileInput.click());
+Cesium.Ion.defaultAccessToken = undefined;
 
-dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-});
-
-dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-});
-
-dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) {
-        handleFile(e.dataTransfer.files[0]);
-    }
-});
-
-fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        handleFile(e.target.files[0]);
-    }
-});
-
-function handleFile(file) {
-    const name = file.name;
-    const ext = name.split('.').pop().toLowerCase();
-    currentFileName = name.substring(0, name.lastIndexOf('.')) || "randovol_survol";
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const text = e.target.result;
-        try {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(text, "text/xml");
-
-            if (ext === 'gpx') {
-                parsedGeoJSON = toGeoJSON.gpx(xmlDoc);
-            } else if (ext === 'kml') {
-                parsedGeoJSON = toGeoJSON.kml(xmlDoc);
-            } else {
-                alert("Format non supporté. Veuillez importer un fichier .kml ou .gpx");
-                return;
-            }
-
-            // Extract line geometry
-            const line = extractLineString(parsedGeoJSON);
-            if (!line) {
-                alert("Aucun tracé (LineString) valide n'a été trouvé dans ce fichier.");
-                return;
-            }
-
-            fileInfo.textContent = `Fichier chargé : ${name} (${turf.length(line, {units: 'kilometers'}).toFixed(2)} km)`;
-            generateBtn.disabled = false;
-        } catch (err) {
-            console.error(err);
-            alert("Erreur lors de la lecture du fichier XML/KML/GPX.");
-        }
-    };
-    reader.readAsText(file);
+function setStatus(s){$("status").textContent=s}
+function setStats(s){$("stats").textContent=s}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function rad(d){return d*Math.PI/180}
+function dist(a,b){
+  const R=6371000, p1=rad(a.lat),p2=rad(b.lat),dp=rad(b.lat-a.lat),dl=rad(b.lon-a.lon);
+  const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
 }
-
-function extractLineString(geojson) {
-    if (geojson.type === 'FeatureCollection') {
-        for (let f of geojson.features) {
-            if (f.geometry && (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString')) {
-                return f;
-            }
-        }
-    } else if (geojson.type === 'Feature' && (geojson.geometry.type === 'LineString' || geojson.geometry.type === 'MultiLineString')) {
-        return geojson;
-    }
-    return null;
+function bearing(a,b){
+  const p1=rad(a.lat),p2=rad(b.lat),dl=rad(b.lon-a.lon);
+  return (Math.atan2(Math.sin(dl)*Math.cos(p2),Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl))*180/Math.PI+360)%360;
 }
+function interpolate(a,b,t){
+  return {lon:a.lon+(b.lon-a.lon)*t,lat:a.lat+(b.lat-a.lat)*t};
+}
+function parseGPX(txt){
+  const xml=new DOMParser().parseFromString(txt,"application/xml");
+  if(xml.querySelector("parsererror")) throw Error("GPX/XML invalide");
+  const pts=[...xml.querySelectorAll("trkpt,rtept")].map(n=>({lon:+n.getAttribute("lon"),lat:+n.getAttribute("lat"),z:+(n.querySelector("ele")?.textContent||NaN)})).filter(p=>Number.isFinite(p.lon)&&Number.isFinite(p.lat));
+  const wps=[...xml.querySelectorAll("wpt")].map(n=>({lon:+n.getAttribute("lon"),lat:+n.getAttribute("lat"),name:n.querySelector("name")?.textContent||"Waypoint"}));
+  return {pts,wps};
+}
+function parseKML(txt){
+  const xml=new DOMParser().parseFromString(txt,"application/xml");
+  if(xml.querySelector("parsererror")) throw Error("KML/XML invalide");
+  const pts=[];
+  for(const el of xml.querySelectorAll("LineString coordinates")){
+    const raw=el.textContent.trim().split(/\s+/);
+    for(const s of raw){const [lon,lat,z]=s.split(",").map(Number);if(Number.isFinite(lon)&&Number.isFinite(lat))pts.push({lon,lat,z:Number.isFinite(z)?z:NaN})}
+  }
+  const wps=[];
+  for(const p of xml.querySelectorAll("Placemark")){
+    const c=p.querySelector("Point coordinates"), name=p.querySelector("name")?.textContent?.trim();
+    if(c){const [lon,lat,z]=c.textContent.trim().split(",").map(Number);if(Number.isFinite(lon)&&Number.isFinite(lat))wps.push({lon,lat,name:name||"Waypoint"})}
+  }
+  return {pts,wps};
+}
+function densify(src){
+  const out=[src[0]];
+  for(let i=1;i<src.length;i++){
+    const a=src[i-1],b=src[i],d=dist(a,b),n=Math.max(1,Math.ceil(d/SAMPLE_SPACING_M));
+    for(let j=1;j<=n;j++)out.push({...interpolate(a,b,j/n),z:NaN});
+  }
+  return out;
+}
+async function getElevations(points){
+  // RGE ALTI API accepts max 5000 coordinate pairs per request.
+  for(let i=0;i<points.length;i+=MAX_API_POINTS){
+    const chunk=points.slice(i,i+MAX_API_POINTS);
+    const lon=chunk.map(p=>p.lon.toFixed(7)).join("|"), lat=chunk.map(p=>p.lat.toFixed(7)).join("|");
+    const u=ALT_API+"?lon="+encodeURIComponent(lon)+"&lat="+encodeURIComponent(lat)+"&resource="+ALT_RESOURCE+"&delimiter=|&indent=false&measures=false&zonly=true";
+    const r=await fetch(u); if(!r.ok) throw Error("Erreur API altimétrique IGN: "+r.status);
+    const j=await r.json(), z=j.elevations||[];
+    chunk.forEach((p,k)=>p.z=Number(z[k]));
+    $("bar").style.width=Math.min(100,((i+chunk.length)/points.length)*100)+"%";
+  }
+  return points;
+}
+function routeDistance(r){let d=0;for(let i=1;i<r.length;i++)d+=dist(r[i-1],r[i]);return d}
 
-// Generate KMZ
-generateBtn.addEventListener('click', async () => {
-    const altitude = parseFloat(document.getElementById('altitude').value) || 150;
-    const tilt = parseFloat(document.getElementById('tilt').value) || 65;
-    const stepDistance = parseFloat(document.getElementById('stepDistance').value) || 30; // meters
-    const speedKmH = parseFloat(document.getElementById('speed').value) || 60; // km/h
-    const range = parseFloat(document.getElementById('range').value) || 300;
-
-    const line = extractLineString(parsedGeoJSON);
-    if (!line) return;
-
-    // Convert speed km/h to m/s
-    const speedMs = speedKmH / 3.6;
-
-    // Calculate total line length in meters
-    const totalLength = turf.length(line, {units: 'meters'});
-
-    // Sample coordinates along the route
-    const tourPoints = [];
-    let currentDistance = 0;
-
-    while (currentDistance < totalLength) {
-        const pt = turf.along(line, currentDistance, {units: 'meters'});
-        tourPoints.push(pt.geometry.coordinates);
-        currentDistance += stepDistance;
-    }
-
-    // Always include the last point
-    const lastPt = turf.along(line, totalLength, {units: 'meters'});
-    tourPoints.push(lastPt.geometry.coordinates);
-
-    if (tourPoints.length < 2) {
-        alert("Le tracé est trop court pour générer un survol.");
-        return;
-    }
-
-    // Build KML gx:Tour XML String
-    let playlistItems = "";
-
-    for (let i = 0; i < tourPoints.length - 1; i++) {
-        const p1 = tourPoints[i];
-        const p2 = tourPoints[i + 1];
-
-        // Compute bearing to next point
-        const bearing = turf.bearing(turf.point(p1), turf.point(p2));
-        const heading = (bearing + 360) % 360; // Normalize [0, 360]
-
-        // Calculate segment duration (seconds)
-        const segmentDist = turf.distance(turf.point(p1), turf.point(p2), {units: 'meters'});
-        const duration = Math.max(0.5, segmentDist / speedMs);
-
-        playlistItems += `
-        <gx:FlyTo>
-          <gx:duration>${duration.toFixed(2)}</gx:duration>
-          <gx:flyToMode>smooth</gx:flyToMode>
-          <LookAt>
-            <longitude>${p1[0]}</longitude>
-            <latitude>${p1[1]}</latitude>
-            <altitude>${altitude}</altitude>
-            <heading>${heading.toFixed(1)}</heading>
-            <tilt>${tilt}</tilt>
-            <range>${range}</range>
-            <altitudeMode>relativeToGround</altitudeMode>
-          </LookAt>
-        </gx:FlyTo>`;
-    }
-
-    const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2"
-     xmlns:gx="http://www.google.com/kml/ext/2.2">
-  <Document>
-    <name>RandoVol - ${currentFileName}</name>
-    <open>1</open>
-    <gx:Tour>
-      <name>Lancer le survol (${altitude}m)</name>
-      <gx:Playlist>
-        ${playlistItems}
-      </gx:Playlist>
-    </gx:Tour>
-  </Document>
-</kml>`;
-
-    // Create KMZ (Zip containing doc.kml)
-    const zip = new JSZip();
-    zip.file("doc.kml", kmlContent);
-
-    const blob = await zip.generateAsync({type: "blob"});
-
-    // Trigger download
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${currentFileName}_randovol.kmz`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+function makeViewer(){
+  viewer=new Cesium.Viewer("cesiumContainer",{
+    animation:false,timeline:false,baseLayerPicker:false,geocoder:false,homeButton:false,
+    navigationHelpButton:false,sceneModePicker:false,fullscreenButton:false,selectionIndicator:false,
+    infoBox:false,terrainProvider:new Cesium.EllipsoidTerrainProvider(),
+    imageryProvider:false
+  });
+  // Public IGN Plan IGN V2 WMTS: no application key required.
+  viewer.imageryLayers.addImageryProvider(new Cesium.WebMapTileServiceImageryProvider({
+    url:"https://data.geopf.fr/wmts",
+    layer:"GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2",
+    style:"normal",
+    format:"image/png",
+    tileMatrixSetID:"PM",
+    maximumLevel:19,
+    credit:"© IGN — Plan IGN"
+  }));
+  viewer.scene.globe.enableLighting=true;
+  viewer.scene.globe.depthTestAgainstTerrain=false;
+  viewer.scene.skyAtmosphere.show=true;
+  viewer.scene.fog.enabled=true;
+  viewer.camera.percentageChanged=.01;
+  viewer.screenSpaceEventHandler.setInputAction(()=>stopFly(),Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")stopFly()});
+  navigator.serviceWorker?.register("sw.js").catch(()=>{});
+}
+function drawRoute(){
+  if(routeEntity)viewer.entities.remove(routeEntity);
+  if(trailEntity)viewer.entities.remove(trailEntity);
+  const cart=route.map(p=>Cesium.Cartesian3.fromDegrees(p.lon,p.lat,p.z));
+  routeEntity=viewer.entities.add({polyline:{positions:cart,width:5,material:new Cesium.PolylineGlowMaterialProperty({glowPower:.15,color:Cesium.Color.YELLOW})}});
+  trailEntity=viewer.entities.add({polyline:{positions:[],width:7,material:Cesium.Color.ORANGE}});
+  for(const w of waypoints){
+    viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(w.lon,w.lat,Number.isFinite(w.z)?w.z:0),
+      point:{pixelSize:10,color:Cesium.Color.RED,outlineColor:Cesium.Color.WHITE,outlineWidth:2},
+      label:{text:w.name,font:"14px sans-serif",showBackground:true,backgroundColor:Cesium.Color.BLACK.withAlpha(.65),pixelOffset:new Cesium.Cartesian2(0,-18)}})
+  }
+}
+function makeDemo(){
+  const raw=[]; const c=[43.2915,5.4505];
+  for(let i=0;i<80;i++){const t=i/79;raw.push({lat:c[0]+.025*Math.sin(t*1.6),lon:c[1]+.055*t+0.006*Math.sin(t*8),z:NaN})}
+  waypoints=[]; return raw;
+}
+async function loadRoute(raw,wps=[]){
+  if(raw.length<2)throw Error("Trace trop courte.");
+  $("play").disabled=true;$("pause").disabled=true;$("reset").disabled=true;$("bar").style.width="0";
+  setStatus("Interpolation de la trace…");
+  route=densify(raw);
+  setStats(`${route.length.toLocaleString("fr-FR")} positions · ${ (routeDistance(route)/1000).toFixed(2)} km`);
+  setStatus(`Interrogation du MNT RGE ALTI® IGN (${route.length} points)…`);
+  await getElevations(route);
+  // Fill missing heights from source GPX if API returns nodata.
+  for(let i=0;i<route.length;i++)if(!Number.isFinite(route[i].z)||route[i].z<-90000)route[i].z=0;
+  waypoints=wps;
+  drawRoute();
+  viewer.flyTo(routeEntity,{duration:2});
+  $("play").disabled=false;$("pause").disabled=false;$("reset").disabled=false;
+  setStatus("Prêt. Altitude caméra = hauteur au-dessus du sol RGE ALTI®.");
+}
+function cameraAt(index){
+  const p=route[index], ahead=route[Math.min(route.length-1,index+Math.max(2,Math.round(CAMERA_LOOK_AHEAD/SAMPLE_SPACING_M)))];
+  const h=+$("height").value, heading=Cesium.Math.toRadians(bearing(p,ahead));
+  const pos=Cesium.Cartesian3.fromDegrees(p.lon,p.lat,p.z+h);
+  viewer.camera.setView({destination:pos,orientation:{heading,pitch:Cesium.Math.toRadians(-10),roll:0}});
+}
+function stopFly(){
+  flying=false;cancelAnimationFrame(raf);$("pause").disabled=false;
+}
+function fly(){
+  if(!route.length)return;
+  flying=true;startTime=performance.now();duration=Math.max(20000,routeDistance(route)/(4.5*+$("speed").value)*1000);
+  function frame(now){
+    if(!flying)return;
+    const t=clamp((now-startTime)/duration,0,1), idx=t*(route.length-1), i=Math.floor(idx);
+    cameraAt(i);
+    trailEntity.polyline.positions=new Cesium.CallbackProperty(()=>route.slice(0,i+1).map(p=>Cesium.Cartesian3.fromDegrees(p.lon,p.lat,p.z+2)),false);
+    $("bar").style.width=(t*100)+"%";
+    if(t>=1){flying=false;setStatus("Survol terminé.");return}
+    raf=requestAnimationFrame(frame);
+  }
+  raf=requestAnimationFrame(frame);
+}
+$("file").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const txt=await f.text();let data;
+    if(/\.gpx$|<gpx/i.test(f.name)||/<trkpt/i.test(txt))data=parseGPX(txt);else data=parseKML(txt);
+    await loadRoute(data.pts,data.wps);
+  }catch(err){console.error(err);setStatus("Erreur : "+err.message)}
 });
+$("demo").onclick=()=>loadRoute(makeDemo(),[]).catch(e=>setStatus("Erreur : "+e.message));
+$("play").onclick=()=>fly(); $("pause").onclick=()=>stopFly(); $("reset").onclick=()=>{stopFly();$("bar").style.width="0";if(route.length)cameraAt(0)};
+$("height").oninput=e=>$("heightValue").textContent=e.target.value;
+makeViewer();
