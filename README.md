@@ -27,3 +27,7 @@ Il n'est donc plus nécessaire de préparer manuellement les dalles RGE ALTI pou
 ### Important
 
 Le MNT est téléchargé à la volée : une connexion Internet est donc nécessaire lors de la première ouverture d'une randonnée. Le service worker met en cache les requêtes de terrain déjà téléchargées afin de faciliter la réutilisation d'une même emprise.
+
+
+### Correction fond cartographique
+Le fond Plan IGN V2 utilise désormais directement le modèle WMTS EPSG:3857/PM avec `UrlTemplateImageryProvider` et `WebMercatorTilingScheme`, plus robuste avec Cesium 1.138.
