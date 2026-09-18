@@ -2,44 +2,28 @@
 
 PWA statique de survol 3D d'une randonnée.
 
-## Fonctionnalités v1.1
-- Import GPX et KML.
-- Interpolation de la trace à ~35 m.
-- Altitudes récupérées auprès de l'API altimétrique de la Géoplateforme avec la ressource `ign_rge_alti_wld` (RGE ALTI®).
-- Caméra Cesium réglable de 50 à 500 m au-dessus du sol.
-- Survol avec vitesse 0,5× à 5×.
-- Trace et waypoints.
-- Service worker `sw.js` nommé « brise-caches » dans l'usage du projet.
-- Fond Plan IGN V2.
-- Démo intégrée.
+## Version 1.2 — MNT automatique
 
-## Déploiement GitHub Pages
-1. Décompresser le ZIP.
-2. Copier le contenu du dossier `randovol` dans le dépôt GitHub Pages.
-3. Activer GitHub Pages sur la branche/dossier voulu.
-4. Ouvrir le site en HTTPS.
+RANDOVOL détecte automatiquement l'emprise du GPX/KML importé, ajoute une marge de 500 m, puis récupère le MNT **RGE ALTI® IGN** correspondant via le service WMS-r de la Géoplateforme. Le GeoTIFF d'altitude est décodé directement dans le navigateur avec GeoTIFF.js et fourni à Cesium sous forme de terrain 3D local en mémoire.
 
-## Important sur le MNT
-Cette première version utilise le **RGE ALTI® pour l'altitude du sol et la trajectoire verticale de la caméra**, via le service altimétrique ouvert de la Géoplateforme. Le relief visuel Cesium reste le globe ellipsoïdal : l'application n'embarque pas les dalles RGE ALTI (trop volumineuses) et ne nécessite aucun token Cesium ion.
+Il n'est donc plus nécessaire de préparer manuellement les dalles RGE ALTI pour chaque randonnée.
 
-La documentation IGN indique que l'API altimétrique permet jusqu'à 5 000 couples lon/lat par requête et que `ign_rge_alti_wld` correspond à une ressource RGE ALTI® couvrant la France. 
+### Fonctionnement
 
-## Limites
-- KMZ n'est pas encore décompressé côté navigateur dans cette v1.
-- Le mode vidéo n'est pas encore inclus.
-- L'altitude caméra est relative au MNT RGE ALTI, mais le relief 3D affiché n'est pas encore un maillage RGE ALTI.
+1. Importer un GPX ou KML.
+2. RANDOVOL interpole la trace.
+3. L'emprise est calculée automatiquement (+ 500 m).
+4. Le MNT RGE ALTI est téléchargé à la résolution adaptée à l'emprise.
+5. Les altitudes de la trace sont interpolées depuis ce MNT.
+6. Cesium affiche le relief réel et le survol peut être lancé à une hauteur de 50 à 500 m au-dessus du terrain.
 
-## Évolutions prévues
-- Lecture KMZ.
-- Profil altimétrique.
-- caméra avec anticipation de virage et spline Catmull-Rom.
-- mode « regard vers l'horizon » réglable.
-- export vidéo WebM.
-- éventuellement génération de tuiles terrain Cesium à partir de dalles RGE ALTI locales pour un véritable relief 3D IGN.
+### Sources
 
-### Correction v1.1
-L'appel au service altimétrique IGN est maintenant effectué en **POST**. Cela évite les problèmes de longueur d'URL avec les traces longues et suit la méthode POST documentée par la Géoplateforme. L'API accepte jusqu'à 5 000 couples longitude/latitude par requête. citeturn1search0
+- Terrain : IGN, RGE ALTI®, via Géoplateforme WMS-r.
+- Fond cartographique : Plan IGN V2 WMTS.
+- Globe/terrain : CesiumJS.
+- Décodage GeoTIFF : GeoTIFF.js.
 
-Le cache du service worker passe à `randovol-v2` afin que GitHub Pages ne conserve pas l'ancien JavaScript.
+### Important
 
-La démo a également été remplacée par un petit circuit plus cohérent dans le secteur de la Sainte-Baume, avec plusieurs virages et trois waypoints.
+Le MNT est téléchargé à la volée : une connexion Internet est donc nécessaire lors de la première ouverture d'une randonnée. Le service worker met en cache les requêtes de terrain déjà téléchargées afin de faciliter la réutilisation d'une même emprise.
