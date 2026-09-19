@@ -31,3 +31,9 @@ Le MNT est téléchargé à la volée : une connexion Internet est donc nécessa
 
 ### Correction fond cartographique
 Le fond BD ORTHO® IGN utilise désormais directement le modèle WMTS EPSG:3857/PM avec `UrlTemplateImageryProvider` et `WebMercatorTilingScheme`, plus robuste avec Cesium 1.138.
+
+
+## BD ORTHO IGN
+La version utilise le flux **WMTS BD ORTHO® IGN** (`ORTHOIMAGERY.ORTHOPHOTOS`) en Web Mercator / TileMatrixSet `PM`. L'image est une `ImageryProvider` Cesium et est donc drapée automatiquement sur le MNT local.
+
+Le fond Plan IGN n'est pas utilisé dans cette version : la couche principale est la photographie aérienne BD ORTHO.
