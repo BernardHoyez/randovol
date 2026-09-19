@@ -20,7 +20,7 @@ Il n'est donc plus nécessaire de préparer manuellement les dalles RGE ALTI pou
 ### Sources
 
 - Terrain : IGN, RGE ALTI®, via Géoplateforme WMS-r.
-- Fond cartographique : Plan IGN V2 WMTS.
+- Fond cartographique : BD ORTHO® IGN WMTS.
 - Globe/terrain : CesiumJS.
 - Décodage GeoTIFF : GeoTIFF.js.
 
@@ -30,4 +30,4 @@ Le MNT est téléchargé à la volée : une connexion Internet est donc nécessa
 
 
 ### Correction fond cartographique
-Le fond Plan IGN V2 utilise désormais directement le modèle WMTS EPSG:3857/PM avec `UrlTemplateImageryProvider` et `WebMercatorTilingScheme`, plus robuste avec Cesium 1.138.
+Le fond BD ORTHO® IGN utilise désormais directement le modèle WMTS EPSG:3857/PM avec `UrlTemplateImageryProvider` et `WebMercatorTilingScheme`, plus robuste avec Cesium 1.138.
