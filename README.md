@@ -41,3 +41,7 @@ Le fond Plan IGN n'est pas utilisé dans cette version : la couche principale es
 
 ### BD ORTHO®
 La version actuelle utilise le provider WMTS natif de Cesium (`WebMapTileServiceImageryProvider`) avec la couche IGN `ORTHOIMAGERY.ORTHOPHOTOS`, matrice `PM` et Web Mercator. Cette couche est référencée par le catalogue cartes.gouv.fr comme le flux WMTS des photographies aériennes IGN.
+
+
+### Correction BD ORTHO v4
+Le fond aérien utilise désormais un `Cesium.UrlTemplateImageryProvider` avec l'URL WMTS explicite de la Géoplateforme et la couche `ORTHOIMAGERY.ORTHOPHOTOS.BDORTHO`, en Web Mercator / PM. Cette forme d'URL est celle documentée pour les tuiles WMTS IGN.

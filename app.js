@@ -35,23 +35,22 @@ async function loadTerrain(raw){const b=bbox(raw);const d=terrainDimensions(b);s
 function routeDistance(r){let d=0;for(let i=1;i<r.length;i++)d+=dist(r[i-1],r[i]);return d}
 function makeViewer(){viewer=new Cesium.Viewer("cesiumContainer",{animation:false,timeline:false,baseLayerPicker:false,geocoder:false,homeButton:false,navigationHelpButton:false,sceneModePicker:false,fullscreenButton:false,selectionIndicator:false,infoBox:false,terrainProvider:new Cesium.EllipsoidTerrainProvider(),imageryProvider:false});
 // BD ORTHO IGN : l'imagerie est une couche d'imagery Cesium et se drape automatiquement sur le terrain.
-const ortho=new Cesium.WebMapTileServiceImageryProvider({
-  url:"https://data.geopf.fr/wmts",
-  layer:"ORTHOIMAGERY.ORTHOPHOTOS",
-  style:"normal",
-  format:"image/jpeg",
-  tileMatrixSetID:"PM",
+const ortho=new Cesium.UrlTemplateImageryProvider({
+  url:"https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS.BDORTHO&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
   tilingScheme:new Cesium.WebMercatorTilingScheme(),
   minimumLevel:0,
   maximumLevel:19,
-  credit:"© IGN — BD ORTHO® / Géoplateforme",
+  tileWidth:256,
+  tileHeight:256,
+  credit:"© IGN — BD ORTHO® 50 cm / Géoplateforme",
   enablePickFeatures:false
 });
 ortho.errorEvent.addEventListener(err=>{
   console.warn("BD ORTHO IGN — erreur de tuile",err);
-  setStatus("BD ORTHO : une tuile n'a pas pu être chargée. Vérifiez la connexion et le service IGN.");
+  setStatus("BD ORTHO : erreur de chargement d'une tuile IGN.");
 });
-viewer.imageryLayers.addImageryProvider(ortho);
+const orthoLayer=viewer.imageryLayers.addImageryProvider(ortho);
+orthoLayer.alpha=1.0;
 viewer.scene.globe.enableLighting=true;viewer.scene.globe.depthTestAgainstTerrain=true;viewer.scene.skyAtmosphere.show=true;viewer.scene.fog.enabled=true;viewer.camera.percentageChanged=.01;viewer.screenSpaceEventHandler.setInputAction(()=>stopFly(),Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);document.addEventListener("keydown",e=>{if(e.key==="Escape")stopFly()});navigator.serviceWorker?.register("sw.js").catch(()=>{})}
 function drawRoute(){if(routeEntity)viewer.entities.remove(routeEntity);if(trailEntity)viewer.entities.remove(trailEntity);const cart=route.map(p=>Cesium.Cartesian3.fromDegrees(p.lon,p.lat,Number.isFinite(p.z)?p.z:0));routeEntity=viewer.entities.add({polyline:{positions:cart,width:5,clampToGround:false,material:new Cesium.PolylineGlowMaterialProperty({glowPower:.15,color:Cesium.Color.YELLOW})}});trailEntity=viewer.entities.add({polyline:{positions:[],width:7,material:Cesium.Color.ORANGE}});for(const w of waypoints){const z=rasterAt(w.lon,w.lat);viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(w.lon,w.lat,Number.isFinite(z)?z:0),point:{pixelSize:10,color:Cesium.Color.RED,outlineColor:Cesium.Color.WHITE,outlineWidth:2},label:{text:w.name,font:"14px sans-serif",showBackground:true,backgroundColor:Cesium.Color.BLACK.withAlpha(.65),pixelOffset:new Cesium.Cartesian2(0,-18)}})}}
 function makeDemo(){const pts=[[43.3320,5.7710],[43.3335,5.7780],[43.3370,5.7830],[43.3410,5.7790],[43.3435,5.7710],[43.3415,5.7630],[43.3370,5.7580],[43.3325,5.7620],[43.3300,5.7690],[43.3320,5.7710]];waypoints=[{lat:43.3370,lon:5.7830,name:"Point de vue"},{lat:43.3435,lon:5.7710,name:"Crête"},{lat:43.3320,lon:5.7710,name:"Départ / arrivée"}];return pts.map(([lat,lon])=>({lat,lon,z:NaN}))}
