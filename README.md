@@ -37,3 +37,7 @@ Le fond BD ORTHO® IGN utilise désormais directement le modèle WMTS EPSG:3857/
 La version utilise le flux **WMTS BD ORTHO® IGN** (`ORTHOIMAGERY.ORTHOPHOTOS`) en Web Mercator / TileMatrixSet `PM`. L'image est une `ImageryProvider` Cesium et est donc drapée automatiquement sur le MNT local.
 
 Le fond Plan IGN n'est pas utilisé dans cette version : la couche principale est la photographie aérienne BD ORTHO.
+
+
+### BD ORTHO®
+La version actuelle utilise le provider WMTS natif de Cesium (`WebMapTileServiceImageryProvider`) avec la couche IGN `ORTHOIMAGERY.ORTHOPHOTOS`, matrice `PM` et Web Mercator. Cette couche est référencée par le catalogue cartes.gouv.fr comme le flux WMTS des photographies aériennes IGN.

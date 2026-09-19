@@ -35,11 +35,17 @@ async function loadTerrain(raw){const b=bbox(raw);const d=terrainDimensions(b);s
 function routeDistance(r){let d=0;for(let i=1;i<r.length;i++)d+=dist(r[i-1],r[i]);return d}
 function makeViewer(){viewer=new Cesium.Viewer("cesiumContainer",{animation:false,timeline:false,baseLayerPicker:false,geocoder:false,homeButton:false,navigationHelpButton:false,sceneModePicker:false,fullscreenButton:false,selectionIndicator:false,infoBox:false,terrainProvider:new Cesium.EllipsoidTerrainProvider(),imageryProvider:false});
 // BD ORTHO IGN : l'imagerie est une couche d'imagery Cesium et se drape automatiquement sur le terrain.
-const ortho=new Cesium.UrlTemplateImageryProvider({
-  url:"https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+const ortho=new Cesium.WebMapTileServiceImageryProvider({
+  url:"https://data.geopf.fr/wmts",
+  layer:"ORTHOIMAGERY.ORTHOPHOTOS",
+  style:"normal",
+  format:"image/jpeg",
+  tileMatrixSetID:"PM",
   tilingScheme:new Cesium.WebMercatorTilingScheme(),
-  minimumLevel:0, maximumLevel:19, tileWidth:256, tileHeight:256,
-  credit:"© IGN — BD ORTHO® / Géoplateforme", enablePickFeatures:false
+  minimumLevel:0,
+  maximumLevel:19,
+  credit:"© IGN — BD ORTHO® / Géoplateforme",
+  enablePickFeatures:false
 });
 ortho.errorEvent.addEventListener(err=>{
   console.warn("BD ORTHO IGN — erreur de tuile",err);
